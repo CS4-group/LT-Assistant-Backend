@@ -2,10 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 
-// Middleware
-app.use(cors()); // Enable CORS for all routes
+app.use(cors()); 
 app.use(express.json());
-// Sample course data (in-memory, no database)
 const courses = [
   {
     id: 1,
@@ -24,7 +22,6 @@ const courses = [
   }
 ];
 
-// Get all course names only
 app.get('/api/courses/names', (req, res) => {
   const courseNames = courses.map(course => ({
     id: course.id,
@@ -38,7 +35,6 @@ app.get('/api/courses/names', (req, res) => {
   });
 });
 
-// Get individual course by ID
 app.get('/api/courses/:id', (req, res) => {
   const courseId = parseInt(req.params.id);
   const course = courses.find(c => c.id === courseId);
@@ -58,19 +54,10 @@ app.get('/api/courses/:id', (req, res) => {
   });
 });
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Server is running'
-  });
-});
+
 
 const PORT = 3000;
 app.listen(PORT, () => {
-  console.log('🚀 Server running on http://localhost:' + PORT);
-  console.log('📚 Course Names: http://localhost:' + PORT + '/api/courses/names'); 
-  console.log('📖 Individual Course: http://localhost:' + PORT + '/api/courses/:id (e.g., /api/courses/1)');
 });
 
 module.exports = app;
