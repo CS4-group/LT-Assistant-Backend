@@ -1,63 +1,42 @@
 const express = require('express');
 const cors = require('cors');
+const JSONDatabase = require('./database');
+
 const app = express();
 
+// Middleware
 app.use(cors()); 
 app.use(express.json());
-const courses = [
-  {
-    id: 1,
-    title: 'ENGLISH I',
-    description: 'English composition and literature'
-  },
-  {
-    id: 2,
-    title: 'ALGEBRA I',
-    description: 'Introductory algebra concepts'
-  },
-  {
-    id: 3,
-    title: 'BIOLOGY I',
-    description: 'Basic biological principles'
-  }
-];
 
-app.get('/api/courses/names', (req, res) => {
-  const courseNames = courses.map(course => ({
-    id: course.id,
-    title: course.title
-  }));
+// Initialize database
+const db = new JSONDatabase('./data');
 
+// Import route modules
+const coursesRoutes = require('./routes/courses');
+const teachersRoutes = require('./routes/teachers');
+const clubsRoutes = require('./routes/clubs');
+const reviewsRoutes = require('./routes/reviews');
+
+// Mount routes
+app.use('/api/courses', coursesRoutes(db));
+app.use('/api/teachers', teachersRoutes(db));
+app.use('/api/clubs', clubsRoutes(db));
+app.use('/api/reviews', reviewsRoutes(db));
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
   res.json({
     success: true,
-    data: courseNames,
-    message: 'Course names retrieved successfully'
+    message: 'LT Assistant Backend is running',
+    timestamp: new Date().toISOString()
   });
 });
 
-app.get('/api/courses/:id', (req, res) => {
-  const courseId = parseInt(req.params.id);
-  const course = courses.find(c => c.id === courseId);
-
-  if (!course) {
-    return res.status(404).json({
-      success: false,
-      message: 'Course not found'
-    });
-  }
-
-  
-  res.json({
-    success: true,
-    data: course,
-    message: 'Course retrieved successfully'
-  });
-});
-
-
-
+// Start server
 const PORT = 3000;
 app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`📚 API endpoints available at http://localhost:${PORT}/api/`);
 });
 
 module.exports = app;
