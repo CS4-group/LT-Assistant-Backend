@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const JSONDatabase = require('./database');
@@ -16,12 +17,14 @@ const coursesRoutes = require('./routes/courses');
 const teachersRoutes = require('./routes/teachers');
 const clubsRoutes = require('./routes/clubs');
 const reviewsRoutes = require('./routes/reviews');
+const chatbotRoutes = require('./routes/chatbot');
 
 // Mount routes
 app.use('/api/courses', coursesRoutes(db));
 app.use('/api/teachers', teachersRoutes(db));
 app.use('/api/clubs', clubsRoutes(db));
 app.use('/api/reviews', reviewsRoutes(db));
+app.use('/api/chatbot', chatbotRoutes(db));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
