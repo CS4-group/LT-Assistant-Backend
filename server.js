@@ -13,6 +13,7 @@ app.use(express.json());
 const db = new JSONDatabase('./data');
 
 // Import route modules
+const authRoutes = require('./routes/auth');
 const coursesRoutes = require('./routes/courses');
 const teachersRoutes = require('./routes/teachers');
 const clubsRoutes = require('./routes/clubs');
@@ -20,6 +21,7 @@ const reviewsRoutes = require('./routes/reviews');
 const chatbotRoutes = require('./routes/chatbot');
 
 // Mount routes
+app.use('/api/auth', authRoutes(db));
 app.use('/api/courses', coursesRoutes(db));
 app.use('/api/teachers', teachersRoutes(db));
 app.use('/api/clubs', clubsRoutes(db));
@@ -36,10 +38,11 @@ app.get('/api/health', (req, res) => {
 });
 
 // Start server
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📚 API endpoints available at http://localhost:${PORT}/api/`);
+  console.log(`🔐 Authentication endpoint: http://localhost:${PORT}/api/auth/google`);
 });
 
 module.exports = app;
