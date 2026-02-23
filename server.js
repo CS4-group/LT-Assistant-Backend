@@ -14,6 +14,7 @@ const db = new JSONDatabase('./data');
 
 // Import route modules
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/user');
 const coursesRoutes = require('./routes/courses');
 const teachersRoutes = require('./routes/teachers');
 const clubsRoutes = require('./routes/clubs');
@@ -22,6 +23,7 @@ const chatbotRoutes = require('./routes/chatbot');
 
 // Mount routes
 app.use('/api/auth', authRoutes(db));
+app.use('/api/user', userRoutes(db));
 app.use('/api/courses', coursesRoutes(db));
 app.use('/api/teachers', teachersRoutes(db));
 app.use('/api/clubs', clubsRoutes(db));
