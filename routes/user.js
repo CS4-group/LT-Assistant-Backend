@@ -8,7 +8,8 @@ function formatUser(user) {
     email: user.email,
     name: user.name,
     picture: user.picture,
-    goals: user.goals || null
+    goals: user.goals || null,
+    coursePlan: user.coursePlan || null
   };
 }
 

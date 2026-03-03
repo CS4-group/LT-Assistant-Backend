@@ -15,3 +15,7 @@ node_modules/
 # OS files
 .DS_Store
 Thumbs.db
+
+# User data — contains emails, googleIds, likes (do not commit)
+data/users.json
+data/review_likes.json

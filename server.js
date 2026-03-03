@@ -20,6 +20,7 @@ const teachersRoutes = require('./routes/teachers');
 const clubsRoutes = require('./routes/clubs');
 const reviewsRoutes = require('./routes/reviews');
 const chatbotRoutes = require('./routes/chatbot');
+const plannerRoutes = require('./routes/planner');
 
 // Mount routes
 app.use('/api/auth', authRoutes(db));
@@ -29,6 +30,7 @@ app.use('/api/teachers', teachersRoutes(db));
 app.use('/api/clubs', clubsRoutes(db));
 app.use('/api/reviews', reviewsRoutes(db));
 app.use('/api/chatbot', chatbotRoutes(db));
+app.use('/api/planner', plannerRoutes(db));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

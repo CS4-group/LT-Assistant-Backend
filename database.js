@@ -101,6 +101,20 @@ class JSONDatabase {
     return this.saveAll(collection, filteredRecords);
   }
 
+  // Delete all records matching a condition object
+  deleteWhere(collection, condition) {
+    const records = this.findAll(collection);
+    const filteredRecords = records.filter(record =>
+      !Object.keys(condition).every(key => record[key] === condition[key])
+    );
+
+    if (filteredRecords.length === records.length) {
+      return false; // Nothing matched
+    }
+
+    return this.saveAll(collection, filteredRecords);
+  }
+
   // Get collection statistics
   getStats(collection) {
     const records = this.findAll(collection);
