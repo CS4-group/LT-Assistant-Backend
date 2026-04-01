@@ -29,6 +29,10 @@ app.get('/api/health', (req, res) => {
 });
 
 async function start() {
+  if (!process.env.MONGODB_URI) {
+    console.error('MONGODB_URI environment variable is required');
+    process.exit(1);
+  }
   const db = new MongoDatabase(process.env.MONGODB_URI);
   await db.connect();
 
