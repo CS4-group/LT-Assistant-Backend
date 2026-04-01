@@ -28,7 +28,7 @@ module.exports = (db) => {
       }
 
       // Fetch available courses from database for context
-      const courses = db.findAll('courses');
+      const courses = await db.findAll('courses');
       const courseTitles = courses.map(c => c.title).slice(0, 50); // Limit to avoid token overflow
 
       // Create prompt for a conversational high school counselor
@@ -62,11 +62,11 @@ Respond naturally as a counselor would:`;
 
     } catch (error) {
       console.error('Chatbot error:', error);
-      
+
       // Provide more helpful error messages
       let errorMessage = 'Error processing chatbot request';
       let statusCode = 500;
-      
+
       if (error.message?.includes('404') || error.message?.includes('not found')) {
         errorMessage = 'Model not found. This usually means: 1) Your API key may not have access to this model, 2) The model name may be incorrect, or 3) Your API key may be invalid. Please check your GEMINI_API_KEY in the .env file.';
         statusCode = 503; // Service unavailable
@@ -74,7 +74,7 @@ Respond naturally as a counselor would:`;
         errorMessage = 'Invalid API key. Please check your GEMINI_API_KEY in the .env file.';
         statusCode = 401;
       }
-      
+
       res.status(statusCode).json({
         success: false,
         message: errorMessage,
@@ -85,4 +85,3 @@ Respond naturally as a counselor would:`;
 
   return router;
 };
-

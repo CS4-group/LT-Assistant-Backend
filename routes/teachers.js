@@ -3,9 +3,9 @@ const router = express.Router();
 
 module.exports = (db) => {
   // GET all teachers with ratings
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     try {
-      const teachers = db.getAllWithRatings('teachers');
+      const teachers = await db.getAllWithRatings('teachers');
       res.json({
         success: true,
         data: teachers,
@@ -21,10 +21,10 @@ module.exports = (db) => {
   });
 
   // GET a specific teacher with rating
-  router.get('/:id', (req, res) => {
+  router.get('/:id', async (req, res) => {
     try {
       const teacherId = parseInt(req.params.id);
-      const teacher = db.getWithRating('teachers', teacherId);
+      const teacher = await db.getWithRating('teachers', teacherId);
 
       if (!teacher) {
         return res.status(404).json({
@@ -48,10 +48,10 @@ module.exports = (db) => {
   });
 
   // CREATE a new teacher
-  router.post('/', (req, res) => {
+  router.post('/', async (req, res) => {
     try {
       const { name, department, courses } = req.body;
-      
+
       if (!name || !department) {
         return res.status(400).json({
           success: false,
@@ -59,12 +59,12 @@ module.exports = (db) => {
         });
       }
 
-      const newTeacher = db.insert('teachers', { 
-        name, 
-        department, 
-        courses: courses || [] 
+      const newTeacher = await db.insert('teachers', {
+        name,
+        department,
+        courses: courses || []
       });
-      
+
       if (!newTeacher) {
         return res.status(500).json({
           success: false,
@@ -87,18 +87,18 @@ module.exports = (db) => {
   });
 
   // UPDATE a teacher
-  router.put('/:id', (req, res) => {
+  router.put('/:id', async (req, res) => {
     try {
       const teacherId = parseInt(req.params.id);
       const { name, department, courses } = req.body;
-      
+
       const updates = {};
       if (name) updates.name = name;
       if (department) updates.department = department;
       if (courses) updates.courses = courses;
 
-      const updatedTeacher = db.update('teachers', teacherId, updates);
-      
+      const updatedTeacher = await db.update('teachers', teacherId, updates);
+
       if (!updatedTeacher) {
         return res.status(404).json({
           success: false,
@@ -121,11 +121,11 @@ module.exports = (db) => {
   });
 
   // DELETE a teacher
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', async (req, res) => {
     try {
       const teacherId = parseInt(req.params.id);
-      const deleted = db.delete('teachers', teacherId);
-      
+      const deleted = await db.delete('teachers', teacherId);
+
       if (!deleted) {
         return res.status(404).json({
           success: false,
@@ -148,4 +148,3 @@ module.exports = (db) => {
 
   return router;
 };
-

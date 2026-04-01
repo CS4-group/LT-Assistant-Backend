@@ -3,32 +3,32 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 
 // Attach userLiked: true/false to each review for the given userId (null if unauthenticated)
-function attachUserLiked(reviews, userId, db) {
+async function attachUserLiked(reviews, userId, db) {
   if (!userId) return reviews.map(r => ({ ...r, userLiked: false }));
-  return reviews.map(review => {
-    const liked = db.find('review_likes', { userId, reviewId: review.id }).length > 0;
+  return Promise.all(reviews.map(async (review) => {
+    const liked = (await db.find('review_likes', { userId, reviewId: review.id })).length > 0;
     return { ...review, userLiked: liked };
-  });
+  }));
 }
 
 module.exports = (db) => {
   // GET all reviews (optionally filter by entity)
-  router.get('/', authMiddleware.optional(db), (req, res) => {
+  router.get('/', authMiddleware.optional(db), async (req, res) => {
     try {
       const { entityType, entityId } = req.query;
 
       let reviews;
       if (entityType && entityId) {
-        reviews = db.find('reviews', { entityType, entityId: parseInt(entityId) });
+        reviews = await db.find('reviews', { entityType, entityId: parseInt(entityId) });
       } else if (entityType) {
-        reviews = db.find('reviews', { entityType });
+        reviews = await db.find('reviews', { entityType });
       } else {
-        reviews = db.findAll('reviews');
+        reviews = await db.findAll('reviews');
       }
 
       res.json({
         success: true,
-        data: attachUserLiked(reviews, req.user?.id, db),
+        data: await attachUserLiked(reviews, req.user?.id, db),
         message: 'Reviews retrieved successfully'
       });
     } catch (error) {
@@ -37,16 +37,16 @@ module.exports = (db) => {
   });
 
   // GET a specific review
-  router.get('/:id', authMiddleware.optional(db), (req, res) => {
+  router.get('/:id', authMiddleware.optional(db), async (req, res) => {
     try {
       const reviewId = parseInt(req.params.id);
-      const review = db.findById('reviews', reviewId);
+      const review = await db.findById('reviews', reviewId);
 
       if (!review) {
         return res.status(404).json({ success: false, message: 'Review not found' });
       }
 
-      const [enriched] = attachUserLiked([review], req.user?.id, db);
+      const [enriched] = await attachUserLiked([review], req.user?.id, db);
       res.json({ success: true, data: enriched, message: 'Review retrieved successfully' });
     } catch (error) {
       res.status(500).json({ success: false, message: 'Error retrieving review', error: error.message });
@@ -54,7 +54,7 @@ module.exports = (db) => {
   });
 
   // CREATE a new review (requires auth)
-  router.post('/', authMiddleware(db), (req, res) => {
+  router.post('/', authMiddleware(db), async (req, res) => {
     try {
       const { rating, text, entityType, entityId } = req.body;
 
@@ -71,12 +71,12 @@ module.exports = (db) => {
         return res.status(400).json({ success: false, message: `Entity type must be one of: ${validEntityTypes.join(', ')}` });
       }
 
-      const entity = db.findById(entityType + 's', entityId);
+      const entity = await db.findById(entityType + 's', entityId);
       if (!entity) {
         return res.status(404).json({ success: false, message: `${entityType.charAt(0).toUpperCase() + entityType.slice(1)} not found` });
       }
 
-      const newReview = db.insert('reviews', {
+      const newReview = await db.insert('reviews', {
         rating,
         text: text || null,
         entityType,
@@ -104,22 +104,22 @@ module.exports = (db) => {
   });
 
   // LIKE a review (requires auth)
-  router.post('/:id/like', authMiddleware(db), (req, res) => {
+  router.post('/:id/like', authMiddleware(db), async (req, res) => {
     try {
       const reviewId = parseInt(req.params.id);
-      const review = db.findById('reviews', reviewId);
+      const review = await db.findById('reviews', reviewId);
 
       if (!review) {
         return res.status(404).json({ success: false, message: 'Review not found' });
       }
 
-      const alreadyLiked = db.find('review_likes', { userId: req.user.id, reviewId }).length > 0;
+      const alreadyLiked = (await db.find('review_likes', { userId: req.user.id, reviewId })).length > 0;
       if (alreadyLiked) {
         return res.status(409).json({ success: false, message: 'Already liked this review' });
       }
 
-      db.insert('review_likes', { userId: req.user.id, reviewId, createdAt: new Date().toISOString() });
-      const updated = db.update('reviews', reviewId, { thumbsUp: review.thumbsUp + 1 });
+      await db.insert('review_likes', { userId: req.user.id, reviewId, createdAt: new Date().toISOString() });
+      const updated = await db.update('reviews', reviewId, { thumbsUp: review.thumbsUp + 1 });
 
       res.json({
         success: true,
@@ -132,21 +132,21 @@ module.exports = (db) => {
   });
 
   // UNLIKE a review (requires auth)
-  router.delete('/:id/like', authMiddleware(db), (req, res) => {
+  router.delete('/:id/like', authMiddleware(db), async (req, res) => {
     try {
       const reviewId = parseInt(req.params.id);
-      const review = db.findById('reviews', reviewId);
+      const review = await db.findById('reviews', reviewId);
 
       if (!review) {
         return res.status(404).json({ success: false, message: 'Review not found' });
       }
 
-      const removed = db.deleteWhere('review_likes', { userId: req.user.id, reviewId });
+      const removed = await db.deleteWhere('review_likes', { userId: req.user.id, reviewId });
       if (!removed) {
         return res.status(409).json({ success: false, message: 'You have not liked this review' });
       }
 
-      const updated = db.update('reviews', reviewId, { thumbsUp: Math.max(0, review.thumbsUp - 1) });
+      const updated = await db.update('reviews', reviewId, { thumbsUp: Math.max(0, review.thumbsUp - 1) });
 
       res.json({
         success: true,
@@ -159,7 +159,7 @@ module.exports = (db) => {
   });
 
   // UPDATE a review
-  router.put('/:id', (req, res) => {
+  router.put('/:id', async (req, res) => {
     try {
       const reviewId = parseInt(req.params.id);
       const { rating, text, thumbsDown } = req.body;
@@ -186,7 +186,7 @@ module.exports = (db) => {
         return res.status(400).json({ success: false, message: 'At least one field is required for update' });
       }
 
-      const updatedReview = db.update('reviews', reviewId, updates);
+      const updatedReview = await db.update('reviews', reviewId, updates);
       if (!updatedReview) {
         return res.status(404).json({ success: false, message: 'Review not found' });
       }
@@ -198,17 +198,17 @@ module.exports = (db) => {
   });
 
   // DELETE a review
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', async (req, res) => {
     try {
       const reviewId = parseInt(req.params.id);
-      const deleted = db.delete('reviews', reviewId);
+      const deleted = await db.delete('reviews', reviewId);
 
       if (!deleted) {
         return res.status(404).json({ success: false, message: 'Review not found' });
       }
 
       // Clean up all likes for the deleted review
-      db.deleteWhere('review_likes', { reviewId });
+      await db.deleteWhere('review_likes', { reviewId });
 
       res.json({ success: true, message: 'Review deleted successfully' });
     } catch (error) {

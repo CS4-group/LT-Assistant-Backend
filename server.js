@@ -1,16 +1,13 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const JSONDatabase = require('./database');
+const MongoDatabase = require('./database');
 
 const app = express();
 
 // Middleware
-app.use(cors()); 
+app.use(cors());
 app.use(express.json());
-
-// Initialize database
-const db = new JSONDatabase('./data');
 
 // Import route modules
 const authRoutes = require('./routes/auth');
@@ -22,16 +19,6 @@ const reviewsRoutes = require('./routes/reviews');
 const chatbotRoutes = require('./routes/chatbot');
 const plannerRoutes = require('./routes/planner');
 
-// Mount routes
-app.use('/api/auth', authRoutes(db));
-app.use('/api/user', userRoutes(db));
-app.use('/api/courses', coursesRoutes(db));
-app.use('/api/teachers', teachersRoutes(db));
-app.use('/api/clubs', clubsRoutes(db));
-app.use('/api/reviews', reviewsRoutes(db));
-app.use('/api/chatbot', chatbotRoutes(db));
-app.use('/api/planner', plannerRoutes(db));
-
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
@@ -41,12 +28,39 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📚 API endpoints available at http://localhost:${PORT}/api/`);
-  console.log(`🔐 Authentication endpoint: http://localhost:${PORT}/api/auth/google`);
+async function start() {
+  const db = new MongoDatabase(process.env.MONGODB_URI);
+  await db.connect();
+
+  // Mount routes
+  app.use('/api/auth', authRoutes(db));
+  app.use('/api/user', userRoutes(db));
+  app.use('/api/courses', coursesRoutes(db));
+  app.use('/api/teachers', teachersRoutes(db));
+  app.use('/api/clubs', clubsRoutes(db));
+  app.use('/api/reviews', reviewsRoutes(db));
+  app.use('/api/chatbot', chatbotRoutes(db));
+  app.use('/api/planner', plannerRoutes(db));
+
+  const PORT = process.env.PORT || 3000;
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`API endpoints available at http://localhost:${PORT}/api/`);
+  });
+
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.on(signal, async () => {
+      console.log(`\n${signal} received, shutting down...`);
+      await db.close();
+      server.close();
+      process.exit(0);
+    });
+  }
+}
+
+start().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
 
 module.exports = app;

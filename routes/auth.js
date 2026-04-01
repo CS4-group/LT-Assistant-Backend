@@ -27,7 +27,7 @@ module.exports = (db) => {
         idToken: idToken,
         audience: process.env.GOOGLE_CLIENT_ID,
       });
-      
+
       const payload = ticket.getPayload();
       const { sub: googleId, email, name, picture } = payload;
 
@@ -40,7 +40,7 @@ module.exports = (db) => {
 
       // Find or create user — track whether this is a new account
       let isNewUser = false;
-      let users = db.findAll('users');
+      let users = await db.findAll('users');
       let user = users.find(u => u.googleId === googleId);
 
       if (!user) {
@@ -49,7 +49,7 @@ module.exports = (db) => {
 
         if (user) {
           // Link existing email account to Google ID
-          user = db.update('users', user.id, {
+          user = await db.update('users', user.id, {
             googleId,
             name,
             picture,
@@ -58,7 +58,7 @@ module.exports = (db) => {
         } else {
           // Brand new user
           isNewUser = true;
-          user = db.insert('users', {
+          user = await db.insert('users', {
             googleId,
             email,
             name,
@@ -70,7 +70,7 @@ module.exports = (db) => {
         }
       } else {
         // Returning user — update name/picture in case they changed
-        user = db.update('users', user.id, {
+        user = await db.update('users', user.id, {
           name,
           picture,
           updatedAt: new Date().toISOString()
@@ -105,14 +105,14 @@ module.exports = (db) => {
 
     } catch (error) {
       console.error('Google Sign-In Error:', error);
-      
+
       if (error.message && error.message.includes('Token')) {
         return res.status(401).json({
           success: false,
           error: 'Invalid token'
         });
       }
-      
+
       res.status(500).json({
         success: false,
         error: 'Authentication failed'

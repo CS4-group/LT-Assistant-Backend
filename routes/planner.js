@@ -14,14 +14,16 @@ function emptyPlan() {
 }
 
 // Enrich a plan (courseIds -> full course objects)
-function enrichPlan(plan, db) {
+async function enrichPlan(plan, db) {
   const enriched = {};
   for (const year of VALID_YEARS) {
     enriched[year] = {};
     for (const semester of VALID_SEMESTERS) {
-      enriched[year][semester] = (plan[year]?.[semester] || []).map(id => {
-        return db.findById('courses', id) || { id, title: 'Unknown Course' };
-      });
+      enriched[year][semester] = await Promise.all(
+        (plan[year]?.[semester] || []).map(async (id) => {
+          return (await db.findById('courses', id)) || { id, title: 'Unknown Course' };
+        })
+      );
     }
   }
   return enriched;
@@ -46,14 +48,14 @@ module.exports = (db) => {
   router.use(authMiddleware(db));
 
   // GET /api/planner — get full plan enriched with course data
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     try {
-      const user = db.findById('users', req.user.id);
+      const user = await db.findById('users', req.user.id);
       const plan = user.coursePlan || emptyPlan();
 
       res.json({
         success: true,
-        data: enrichPlan(plan, db)
+        data: await enrichPlan(plan, db)
       });
     } catch (error) {
       res.status(500).json({ success: false, message: 'Error retrieving plan', error: error.message });
@@ -62,7 +64,7 @@ module.exports = (db) => {
 
   // POST /api/planner/add — add a course to a slot
   // Body: { courseId, year, semester }
-  router.post('/add', (req, res) => {
+  router.post('/add', async (req, res) => {
     try {
       const { courseId, year, semester } = req.body;
 
@@ -72,12 +74,12 @@ module.exports = (db) => {
 
       if (!validateSlot(year, semester, res)) return;
 
-      const course = db.findById('courses', parseInt(courseId));
+      const course = await db.findById('courses', parseInt(courseId));
       if (!course) {
         return res.status(404).json({ success: false, message: 'Course not found' });
       }
 
-      const user = db.findById('users', req.user.id);
+      const user = await db.findById('users', req.user.id);
       const plan = user.coursePlan || emptyPlan();
 
       if (plan[year][semester].includes(parseInt(courseId))) {
@@ -86,12 +88,12 @@ module.exports = (db) => {
 
       plan[year][semester].push(parseInt(courseId));
 
-      db.update('users', req.user.id, { coursePlan: plan, updatedAt: new Date().toISOString() });
+      await db.update('users', req.user.id, { coursePlan: plan, updatedAt: new Date().toISOString() });
 
       res.json({
         success: true,
         message: `${course.title} added to ${year} ${semester}`,
-        data: enrichPlan(plan, db)
+        data: await enrichPlan(plan, db)
       });
     } catch (error) {
       res.status(500).json({ success: false, message: 'Error adding course', error: error.message });
@@ -100,7 +102,7 @@ module.exports = (db) => {
 
   // DELETE /api/planner/remove — remove a course from a slot
   // Body: { courseId, year, semester }
-  router.delete('/remove', (req, res) => {
+  router.delete('/remove', async (req, res) => {
     try {
       const { courseId, year, semester } = req.body;
 
@@ -110,7 +112,7 @@ module.exports = (db) => {
 
       if (!validateSlot(year, semester, res)) return;
 
-      const user = db.findById('users', req.user.id);
+      const user = await db.findById('users', req.user.id);
       const plan = user.coursePlan || emptyPlan();
 
       const index = plan[year][semester].indexOf(parseInt(courseId));
@@ -120,12 +122,12 @@ module.exports = (db) => {
 
       plan[year][semester].splice(index, 1);
 
-      db.update('users', req.user.id, { coursePlan: plan, updatedAt: new Date().toISOString() });
+      await db.update('users', req.user.id, { coursePlan: plan, updatedAt: new Date().toISOString() });
 
       res.json({
         success: true,
         message: 'Course removed',
-        data: enrichPlan(plan, db)
+        data: await enrichPlan(plan, db)
       });
     } catch (error) {
       res.status(500).json({ success: false, message: 'Error removing course', error: error.message });
@@ -134,7 +136,7 @@ module.exports = (db) => {
 
   // POST /api/planner/move — move a course from one slot to another
   // Body: { courseId, fromYear, fromSemester, toYear, toSemester }
-  router.post('/move', (req, res) => {
+  router.post('/move', async (req, res) => {
     try {
       const { courseId, fromYear, fromSemester, toYear, toSemester } = req.body;
 
@@ -145,7 +147,7 @@ module.exports = (db) => {
       if (!validateSlot(fromYear, fromSemester, res)) return;
       if (!validateSlot(toYear, toSemester, res)) return;
 
-      const user = db.findById('users', req.user.id);
+      const user = await db.findById('users', req.user.id);
       const plan = user.coursePlan || emptyPlan();
 
       const fromIndex = plan[fromYear][fromSemester].indexOf(parseInt(courseId));
@@ -160,13 +162,13 @@ module.exports = (db) => {
       plan[fromYear][fromSemester].splice(fromIndex, 1);
       plan[toYear][toSemester].push(parseInt(courseId));
 
-      db.update('users', req.user.id, { coursePlan: plan, updatedAt: new Date().toISOString() });
+      await db.update('users', req.user.id, { coursePlan: plan, updatedAt: new Date().toISOString() });
 
-      const course = db.findById('courses', parseInt(courseId));
+      const course = await db.findById('courses', parseInt(courseId));
       res.json({
         success: true,
         message: `${course?.title || 'Course'} moved to ${toYear} ${toSemester}`,
-        data: enrichPlan(plan, db)
+        data: await enrichPlan(plan, db)
       });
     } catch (error) {
       res.status(500).json({ success: false, message: 'Error moving course', error: error.message });
@@ -174,16 +176,16 @@ module.exports = (db) => {
   });
 
   // DELETE /api/planner/reset — wipe the entire plan
-  router.delete('/reset', (req, res) => {
+  router.delete('/reset', async (req, res) => {
     try {
       const plan = emptyPlan();
 
-      db.update('users', req.user.id, { coursePlan: plan, updatedAt: new Date().toISOString() });
+      await db.update('users', req.user.id, { coursePlan: plan, updatedAt: new Date().toISOString() });
 
       res.json({
         success: true,
         message: 'Course plan reset',
-        data: enrichPlan(plan, db)
+        data: await enrichPlan(plan, db)
       });
     } catch (error) {
       res.status(500).json({ success: false, message: 'Error resetting plan', error: error.message });

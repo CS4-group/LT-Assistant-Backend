@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
  * Usage: router.post('/route', authMiddleware(db), handler)
  */
 function authMiddleware(db) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     try {
       const authHeader = req.headers.authorization;
 
@@ -19,7 +19,7 @@ function authMiddleware(db) {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = db.findById('users', decoded.userId);
+      const user = await db.findById('users', decoded.userId);
 
       if (!user) {
         return res.status(401).json({ success: false, error: 'User not found' });
@@ -45,7 +45,7 @@ function authMiddleware(db) {
  * Usage: router.get('/route', authMiddleware.optional(db), handler)
  */
 authMiddleware.optional = (db) => {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     try {
       const authHeader = req.headers.authorization;
       if (!authHeader) return next();
@@ -54,7 +54,7 @@ authMiddleware.optional = (db) => {
       if (!token) return next();
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = db.findById('users', decoded.userId);
+      const user = await db.findById('users', decoded.userId);
       if (user) {
         req.user = { id: user.id, email: user.email, name: user.name, picture: user.picture };
       }

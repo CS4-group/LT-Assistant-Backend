@@ -17,7 +17,7 @@ module.exports = (db) => {
   const router = express.Router();
 
   // POST /api/user/goals
-  router.post('/goals', authMiddleware(db), (req, res) => {
+  router.post('/goals', authMiddleware(db), async (req, res) => {
     try {
       const { gradeLevel, careerPath, collegeGoals, academicInterests, gpaGoal } = req.body;
 
@@ -35,7 +35,7 @@ module.exports = (db) => {
         });
       }
 
-      const updatedUser = db.update('users', req.user.id, {
+      const updatedUser = await db.update('users', req.user.id, {
         goals: { gradeLevel, careerPath, collegeGoals, academicInterests, gpaGoal },
         updatedAt: new Date().toISOString()
       });
@@ -63,9 +63,9 @@ module.exports = (db) => {
   });
 
   // GET /api/user/profile
-  router.get('/profile', authMiddleware(db), (req, res) => {
+  router.get('/profile', authMiddleware(db), async (req, res) => {
     try {
-      const user = db.findById('users', req.user.id);
+      const user = await db.findById('users', req.user.id);
 
       if (!user) {
         return res.status(404).json({

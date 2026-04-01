@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs ls:*)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(timeout 10 node server.js)",
+      "Bash(node -e ':*)",
+      "Bash(node server.js)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(curl -s http://localhost:3000/api/courses)",
+      "Bash(node -e \"process.stdin.on\\('data',d=>{const j=JSON.parse\\(d\\);console.log\\('Courses: success='+j.success+' count='+j.data.length\\)}\\)\")",
+      "Bash(curl -s \"http://localhost:3000/api/courses/1\")",
+      "Bash(node -e \"process.stdin.on\\('data',d=>{const j=JSON.parse\\(d\\);console.log\\('Course 1: '+j.data.title+' rating='+j.data.rating+' reviewCount='+j.data.reviewCount\\)}\\)\")",
+      "Bash(curl -s \"http://localhost:3000/api/reviews?entityType=course&entityId=1\")",
+      "Bash(node -e \"process.stdin.on\\('data',d=>{const j=JSON.parse\\(d\\);console.log\\('Reviews for course 1: count='+j.data.length\\)}\\)\")",
+      "Bash(curl -s http://localhost:3000/api/teachers)",
+      "Bash(node -e \"process.stdin.on\\('data',d=>{const j=JSON.parse\\(d\\);console.log\\('Teachers: success='+j.success+' count='+j.data.length\\)}\\)\")",
+      "Bash(curl -s http://localhost:3000/api/clubs)",
+      "Bash(node -e \"process.stdin.on\\('data',d=>{const j=JSON.parse\\(d\\);console.log\\('Clubs: success='+j.success+' count='+j.data.length\\)}\\)\")",
+      "Bash(pkill -f \"node server.js\")"
+    ]
+  }
+}

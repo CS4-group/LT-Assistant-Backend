@@ -3,9 +3,9 @@ const router = express.Router();
 
 module.exports = (db) => {
   // GET course names with ratings
-  router.get('/names', (req, res) => {
+  router.get('/names', async (req, res) => {
     try {
-      const courses = db.getAllWithRatings('courses');
+      const courses = await db.getAllWithRatings('courses');
       const courseNames = courses.map(course => ({
         id: course.id,
         title: course.title,
@@ -28,10 +28,10 @@ module.exports = (db) => {
   });
 
   // GET a specific course with rating
-  router.get('/:id', (req, res) => {
+  router.get('/:id', async (req, res) => {
     try {
       const courseId = parseInt(req.params.id);
-      const course = db.getWithRating('courses', courseId);
+      const course = await db.getWithRating('courses', courseId);
 
       if (!course) {
         return res.status(404).json({
@@ -55,9 +55,9 @@ module.exports = (db) => {
   });
 
   // GET all courses with ratings
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     try {
-      const courses = db.getAllWithRatings('courses');
+      const courses = await db.getAllWithRatings('courses');
       res.json({
         success: true,
         data: courses,
@@ -73,10 +73,10 @@ module.exports = (db) => {
   });
 
   // CREATE a new course
-  router.post('/', (req, res) => {
+  router.post('/', async (req, res) => {
     try {
       const { title, description } = req.body;
-      
+
       if (!title || !description) {
         return res.status(400).json({
           success: false,
@@ -84,8 +84,8 @@ module.exports = (db) => {
         });
       }
 
-      const newCourse = db.insert('courses', { title, description });
-      
+      const newCourse = await db.insert('courses', { title, description });
+
       if (!newCourse) {
         return res.status(500).json({
           success: false,
@@ -108,11 +108,11 @@ module.exports = (db) => {
   });
 
   // UPDATE a course
-  router.put('/:id', (req, res) => {
+  router.put('/:id', async (req, res) => {
     try {
       const courseId = parseInt(req.params.id);
       const { title, description } = req.body;
-      
+
       if (!title && !description) {
         return res.status(400).json({
           success: false,
@@ -124,8 +124,8 @@ module.exports = (db) => {
       if (title) updates.title = title;
       if (description) updates.description = description;
 
-      const updatedCourse = db.update('courses', courseId, updates);
-      
+      const updatedCourse = await db.update('courses', courseId, updates);
+
       if (!updatedCourse) {
         return res.status(404).json({
           success: false,
@@ -148,11 +148,11 @@ module.exports = (db) => {
   });
 
   // DELETE a course
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', async (req, res) => {
     try {
       const courseId = parseInt(req.params.id);
-      const deleted = db.delete('courses', courseId);
-      
+      const deleted = await db.delete('courses', courseId);
+
       if (!deleted) {
         return res.status(404).json({
           success: false,
@@ -175,4 +175,3 @@ module.exports = (db) => {
 
   return router;
 };
-

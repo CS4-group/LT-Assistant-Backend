@@ -8,17 +8,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm start          # Run the server (node server.js)
 npm run dev        # Same as npm start (no hot-reload configured)
 npm install        # Install dependencies
+npm run migrate    # Migrate JSON data files to MongoDB (idempotent)
 ```
 
 There is no build step, no linter, and no test framework configured.
 
 ## Architecture
 
-This is an Express.js (CommonJS) backend for **LT Assistant**, a high school course planning and review app. It uses a file-based JSON database instead of a traditional DBMS.
+This is an Express.js (CommonJS) backend for **LT Assistant**, a high school course planning and review app. It uses MongoDB (native driver) for data storage.
 
 ### Database Layer (`database.js`)
 
-`JSONDatabase` reads/writes JSON files in `./data/`. Each "collection" maps to a file (e.g., `data/courses.json`). It provides `findAll`, `findById`, `find`, `insert`, `update`, `delete`, `deleteWhere`, and rating-aggregation helpers (`getAverageRating`, `getWithRating`, `getAllWithRatings`). All data is stored on disk — there is no in-memory caching.
+`MongoDatabase` connects to MongoDB via the `mongodb` native driver. It provides `findAll`, `findById`, `find`, `insert`, `update`, `delete`, `deleteWhere`, and rating-aggregation helpers (`getAverageRating`, `getWithRating`, `getAllWithRatings`). All methods are async. The constructor takes a MongoDB URI; call `connect()` before use. The `_id` field is suppressed from all query results via projection.
 
 ### Route Pattern
 
@@ -64,11 +65,11 @@ The planner stores an object on the user record (`user.coursePlan`) with the sha
 
 ## Environment Variables
 
-Required in `.env`: `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `JWT_SECRET`, `PORT`.
+Required in `.env`: `MONGODB_URI`, `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `JWT_SECRET`, `PORT`.
 
-## Data Files
+## Data
 
-JSON data lives in `./data/`. The files `users.json` and `review_likes.json` are gitignored (contain PII). The remaining data files (`courses.json`, `teachers.json`, `clubs.json`, `reviews.json`) are committed.
+Data is stored in MongoDB. The original JSON files in `./data/` are kept as backups. Run `npm run migrate` to load them into MongoDB.
 
 ## Response Format
 

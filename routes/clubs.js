@@ -3,9 +3,9 @@ const router = express.Router();
 
 module.exports = (db) => {
   // GET all clubs with ratings
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     try {
-      const clubs = db.getAllWithRatings('clubs');
+      const clubs = await db.getAllWithRatings('clubs');
       res.json({
         success: true,
         data: clubs,
@@ -21,10 +21,10 @@ module.exports = (db) => {
   });
 
   // GET a specific club with rating
-  router.get('/:id', (req, res) => {
+  router.get('/:id', async (req, res) => {
     try {
       const clubId = parseInt(req.params.id);
-      const club = db.getWithRating('clubs', clubId);
+      const club = await db.getWithRating('clubs', clubId);
 
       if (!club) {
         return res.status(404).json({
@@ -48,10 +48,10 @@ module.exports = (db) => {
   });
 
   // CREATE a new club
-  router.post('/', (req, res) => {
+  router.post('/', async (req, res) => {
     try {
       const { name, description, meetingDay } = req.body;
-      
+
       if (!name || !description) {
         return res.status(400).json({
           success: false,
@@ -59,12 +59,12 @@ module.exports = (db) => {
         });
       }
 
-      const newClub = db.insert('clubs', { 
-        name, 
-        description, 
-        meetingDay: meetingDay || null 
+      const newClub = await db.insert('clubs', {
+        name,
+        description,
+        meetingDay: meetingDay || null
       });
-      
+
       if (!newClub) {
         return res.status(500).json({
           success: false,
@@ -87,18 +87,18 @@ module.exports = (db) => {
   });
 
   // UPDATE a club
-  router.put('/:id', (req, res) => {
+  router.put('/:id', async (req, res) => {
     try {
       const clubId = parseInt(req.params.id);
       const { name, description, meetingDay } = req.body;
-      
+
       const updates = {};
       if (name) updates.name = name;
       if (description) updates.description = description;
       if (meetingDay !== undefined) updates.meetingDay = meetingDay;
 
-      const updatedClub = db.update('clubs', clubId, updates);
-      
+      const updatedClub = await db.update('clubs', clubId, updates);
+
       if (!updatedClub) {
         return res.status(404).json({
           success: false,
@@ -121,11 +121,11 @@ module.exports = (db) => {
   });
 
   // DELETE a club
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', async (req, res) => {
     try {
       const clubId = parseInt(req.params.id);
-      const deleted = db.delete('clubs', clubId);
-      
+      const deleted = await db.delete('clubs', clubId);
+
       if (!deleted) {
         return res.status(404).json({
           success: false,
@@ -148,4 +148,3 @@ module.exports = (db) => {
 
   return router;
 };
-
