@@ -31,6 +31,7 @@ module.exports = (db) => {
     return {
       id: user.id,
       email: user.email,
+      name: user.name,
       goals: user.goals || null,
       coursePlan: user.coursePlan || null
     };
@@ -40,14 +41,15 @@ module.exports = (db) => {
   router.post('/signup',
     body('email').isEmail().normalizeEmail(),
     body('password').isLength({ min: 8 }).matches(/(?=.*[a-zA-Z])(?=.*[0-9])/),
+    body('name').trim().notEmpty(),
     async (req, res) => {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          return res.status(400).json({ success: false, message: 'Invalid email or password format' });
+          return res.status(400).json({ success: false, message: 'Invalid email, password, or name format' });
         }
 
-        const { email, password } = req.body;
+        const { email, password, name } = req.body;
 
         const existing = await db.find('users', { email });
         if (existing.length > 0) {
@@ -60,6 +62,7 @@ module.exports = (db) => {
 
         await db.insert('users', {
           email,
+          name,
           password: hashedPassword,
           isConfirmed: false,
           confirmationToken,

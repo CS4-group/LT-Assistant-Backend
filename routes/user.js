@@ -5,6 +5,7 @@ function formatUser(user) {
   return {
     id: user.id,
     email: user.email,
+    name: user.name,
     goals: user.goals || null,
     coursePlan: user.coursePlan || null
   };

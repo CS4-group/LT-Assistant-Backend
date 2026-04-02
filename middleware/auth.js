@@ -20,7 +20,7 @@ function requireAuth(db) {
         return res.status(403).json({ success: false, message: 'Please confirm your email address' });
       }
 
-      req.user = { id: user.id, email: user.email };
+      req.user = { id: user.id, email: user.email, name: user.name };
       next();
     } catch (error) {
       return res.status(401).json({ success: false, message: 'Authentication required' });

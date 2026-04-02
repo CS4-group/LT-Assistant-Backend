@@ -79,7 +79,7 @@ module.exports = (db) => {
         entityType,
         entityId,
         userId: req.user.id,
-        userName: req.user.email,
+        userName: req.user.name,
         userPicture: null,
         timestamp: new Date().toISOString(),
         thumbsUp: 0,
