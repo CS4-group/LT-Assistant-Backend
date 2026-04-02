@@ -1,68 +1,31 @@
 const jwt = require('jsonwebtoken');
 
-/**
- * Required auth — rejects with 401 if no valid token present.
- * Usage: router.post('/route', authMiddleware(db), handler)
- */
-function authMiddleware(db) {
+function requireAuth(db) {
   return async (req, res, next) => {
     try {
-      const authHeader = req.headers.authorization;
+      const token = req.cookies?.token;
 
-      if (!authHeader) {
-        return res.status(401).json({ success: false, error: 'No authorization token provided' });
-      }
-
-      const token = authHeader.split(' ')[1];
       if (!token) {
-        return res.status(401).json({ success: false, error: 'Invalid authorization format. Use: Bearer <token>' });
+        return res.status(401).json({ success: false, message: 'Authentication required' });
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await db.findById('users', decoded.userId);
 
       if (!user) {
-        return res.status(401).json({ success: false, error: 'User not found' });
+        return res.status(401).json({ success: false, message: 'Authentication required' });
       }
 
-      req.user = { id: user.id, email: user.email, name: user.name, picture: user.picture };
+      if (!user.isConfirmed) {
+        return res.status(403).json({ success: false, message: 'Please confirm your email address' });
+      }
+
+      req.user = { id: user.id, email: user.email };
       next();
     } catch (error) {
-      if (error.name === 'JsonWebTokenError') {
-        return res.status(401).json({ success: false, error: 'Invalid token' });
-      }
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({ success: false, error: 'Token expired' });
-      }
-      res.status(500).json({ success: false, error: 'Authentication failed' });
+      return res.status(401).json({ success: false, message: 'Authentication required' });
     }
   };
 }
 
-/**
- * Optional auth — attaches req.user if a valid token is present, otherwise continues.
- * Use for public endpoints that return bonus data for authenticated users.
- * Usage: router.get('/route', authMiddleware.optional(db), handler)
- */
-authMiddleware.optional = (db) => {
-  return async (req, res, next) => {
-    try {
-      const authHeader = req.headers.authorization;
-      if (!authHeader) return next();
-
-      const token = authHeader.split(' ')[1];
-      if (!token) return next();
-
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await db.findById('users', decoded.userId);
-      if (user) {
-        req.user = { id: user.id, email: user.email, name: user.name, picture: user.picture };
-      }
-    } catch (_) {
-      // Invalid/expired token — continue as unauthenticated
-    }
-    next();
-  };
-};
-
-module.exports = authMiddleware;
+module.exports = requireAuth;

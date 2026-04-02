@@ -1,12 +1,17 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const MongoDatabase = require('./database');
+const requireAuth = require('./middleware/auth');
 
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(helmet());
+app.use(cors({ origin: 'https://ltassistant.com', credentials: true }));
+app.use(cookieParser());
 app.use(express.json());
 
 // Import route modules
@@ -36,15 +41,22 @@ async function start() {
   const db = new MongoDatabase(process.env.MONGODB_URI);
   await db.connect();
 
-  // Mount routes
+  // Ensure indexes
+  await db.db.collection('users').createIndex({ email: 1 }, { unique: true }).catch(() => {});
+  await db.db.collection('users').createIndex({ confirmationToken: 1 }, { sparse: true }).catch(() => {});
+
+  // Mount routes — auth routes handle their own auth per-route
   app.use('/api/auth', authRoutes(db));
-  app.use('/api/user', userRoutes(db));
-  app.use('/api/courses', coursesRoutes(db));
-  app.use('/api/teachers', teachersRoutes(db));
-  app.use('/api/clubs', clubsRoutes(db));
-  app.use('/api/reviews', reviewsRoutes(db));
-  app.use('/api/chatbot', chatbotRoutes(db));
-  app.use('/api/planner', plannerRoutes(db));
+
+  // All other routes require authentication
+  const auth = requireAuth(db);
+  app.use('/api/user', auth, userRoutes(db));
+  app.use('/api/courses', auth, coursesRoutes(db));
+  app.use('/api/teachers', auth, teachersRoutes(db));
+  app.use('/api/clubs', auth, clubsRoutes(db));
+  app.use('/api/reviews', auth, reviewsRoutes(db));
+  app.use('/api/chatbot', auth, chatbotRoutes(db));
+  app.use('/api/planner', auth, plannerRoutes(db));
 
   const PORT = process.env.PORT || 3000;
   const server = app.listen(PORT, '0.0.0.0', () => {

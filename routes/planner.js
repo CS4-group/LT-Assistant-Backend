@@ -1,5 +1,4 @@
 const express = require('express');
-const authMiddleware = require('../middleware/auth');
 
 const VALID_YEARS = ['freshman', 'sophomore', 'junior', 'senior'];
 const VALID_SEMESTERS = ['fall', 'spring'];
@@ -43,9 +42,6 @@ function validateSlot(year, semester, res) {
 
 module.exports = (db) => {
   const router = express.Router();
-
-  // All planner routes require auth
-  router.use(authMiddleware(db));
 
   // GET /api/planner — get full plan enriched with course data
   router.get('/', async (req, res) => {

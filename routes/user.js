@@ -1,13 +1,10 @@
 const express = require('express');
-const authMiddleware = require('../middleware/auth');
 
-// Helper to format user response with nested goals field
+// Helper to format user response
 function formatUser(user) {
   return {
     id: user.id,
     email: user.email,
-    name: user.name,
-    picture: user.picture,
     goals: user.goals || null,
     coursePlan: user.coursePlan || null
   };
@@ -17,7 +14,7 @@ module.exports = (db) => {
   const router = express.Router();
 
   // POST /api/user/goals
-  router.post('/goals', authMiddleware(db), async (req, res) => {
+  router.post('/goals', async (req, res) => {
     try {
       const { gradeLevel, careerPath, collegeGoals, academicInterests, gpaGoal } = req.body;
 
@@ -63,7 +60,7 @@ module.exports = (db) => {
   });
 
   // GET /api/user/profile
-  router.get('/profile', authMiddleware(db), async (req, res) => {
+  router.get('/profile', async (req, res) => {
     try {
       const user = await db.findById('users', req.user.id);
 

@@ -1,10 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const authMiddleware = require('../middleware/auth');
 
-// Attach userLiked: true/false to each review for the given userId (null if unauthenticated)
 async function attachUserLiked(reviews, userId, db) {
-  if (!userId) return reviews.map(r => ({ ...r, userLiked: false }));
   return Promise.all(reviews.map(async (review) => {
     const liked = (await db.find('review_likes', { userId, reviewId: review.id })).length > 0;
     return { ...review, userLiked: liked };
@@ -13,7 +10,7 @@ async function attachUserLiked(reviews, userId, db) {
 
 module.exports = (db) => {
   // GET all reviews (optionally filter by entity)
-  router.get('/', authMiddleware.optional(db), async (req, res) => {
+  router.get('/', async (req, res) => {
     try {
       const { entityType, entityId } = req.query;
 
@@ -28,7 +25,7 @@ module.exports = (db) => {
 
       res.json({
         success: true,
-        data: await attachUserLiked(reviews, req.user?.id, db),
+        data: await attachUserLiked(reviews, req.user.id, db),
         message: 'Reviews retrieved successfully'
       });
     } catch (error) {
@@ -37,7 +34,7 @@ module.exports = (db) => {
   });
 
   // GET a specific review
-  router.get('/:id', authMiddleware.optional(db), async (req, res) => {
+  router.get('/:id', async (req, res) => {
     try {
       const reviewId = parseInt(req.params.id);
       const review = await db.findById('reviews', reviewId);
@@ -46,7 +43,7 @@ module.exports = (db) => {
         return res.status(404).json({ success: false, message: 'Review not found' });
       }
 
-      const [enriched] = await attachUserLiked([review], req.user?.id, db);
+      const [enriched] = await attachUserLiked([review], req.user.id, db);
       res.json({ success: true, data: enriched, message: 'Review retrieved successfully' });
     } catch (error) {
       res.status(500).json({ success: false, message: 'Error retrieving review', error: error.message });
@@ -54,7 +51,7 @@ module.exports = (db) => {
   });
 
   // CREATE a new review (requires auth)
-  router.post('/', authMiddleware(db), async (req, res) => {
+  router.post('/', async (req, res) => {
     try {
       const { rating, text, entityType, entityId } = req.body;
 
@@ -82,8 +79,8 @@ module.exports = (db) => {
         entityType,
         entityId,
         userId: req.user.id,
-        userName: req.user.name,
-        userPicture: req.user.picture,
+        userName: req.user.email,
+        userPicture: null,
         timestamp: new Date().toISOString(),
         thumbsUp: 0,
         thumbsDown: 0
@@ -104,7 +101,7 @@ module.exports = (db) => {
   });
 
   // LIKE a review (requires auth)
-  router.post('/:id/like', authMiddleware(db), async (req, res) => {
+  router.post('/:id/like', async (req, res) => {
     try {
       const reviewId = parseInt(req.params.id);
       const review = await db.findById('reviews', reviewId);
@@ -132,7 +129,7 @@ module.exports = (db) => {
   });
 
   // UNLIKE a review (requires auth)
-  router.delete('/:id/like', authMiddleware(db), async (req, res) => {
+  router.delete('/:id/like', async (req, res) => {
     try {
       const reviewId = parseInt(req.params.id);
       const review = await db.findById('reviews', reviewId);

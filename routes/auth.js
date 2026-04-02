@@ -1,144 +1,230 @@
 const express = require('express');
-const { OAuth2Client } = require('google-auth-library');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { body, validationResult } = require('express-validator');
+const { Resend } = require('resend');
+const rateLimit = require('express-rate-limit');
+const requireAuth = require('../middleware/auth');
 
 module.exports = (db) => {
   const router = express.Router();
-  const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
-  /**
-   * POST /api/auth/google
-   * Authenticate user with Google ID token
-   * Returns isNewUser: true if the account was just created
-   */
-  router.post('/google', async (req, res) => {
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many requests, please try again later' }
+  });
+  router.use(authLimiter);
+
+  const COOKIE_OPTIONS = {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  };
+
+  function sanitizeUser(user) {
+    return {
+      id: user.id,
+      email: user.email,
+      goals: user.goals || null,
+      coursePlan: user.coursePlan || null
+    };
+  }
+
+  // POST /api/auth/signup
+  router.post('/signup',
+    body('email').isEmail().normalizeEmail(),
+    body('password').isLength({ min: 8 }).matches(/(?=.*[a-zA-Z])(?=.*[0-9])/),
+    async (req, res) => {
+      try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ success: false, message: 'Invalid email or password format' });
+        }
+
+        const { email, password } = req.body;
+
+        const existing = await db.find('users', { email });
+        if (existing.length > 0) {
+          return res.status(201).json({ success: true, message: 'Please check your email to confirm your account.' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 12);
+        const confirmationToken = crypto.randomBytes(32).toString('hex');
+        const confirmationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await db.insert('users', {
+          email,
+          password: hashedPassword,
+          isConfirmed: false,
+          confirmationToken,
+          confirmationTokenExpiry: confirmationTokenExpiry.toISOString(),
+          goals: null,
+          coursePlan: null,
+          createdAt: new Date().toISOString()
+        });
+
+        try {
+          await resend.emails.send({
+            from: 'noreply@ltassistant.com',
+            to: email,
+            subject: 'Confirm your LT Assistant account',
+            html: `<p>Click <a href="https://ltassistant.com/confirm/${confirmationToken}">here</a> to confirm your account. This link expires in 24 hours.</p>`
+          });
+        } catch (emailError) {
+          console.error('Failed to send confirmation email:', emailError);
+        }
+
+        res.status(201).json({ success: true, message: 'Please check your email to confirm your account.' });
+      } catch (error) {
+        console.error('Signup error:', error);
+        res.status(500).json({ success: false, message: 'An error occurred. Please try again.' });
+      }
+    }
+  );
+
+  // GET /api/auth/confirm/:token
+  router.get('/confirm/:token', async (req, res) => {
     try {
-      const { idToken } = req.body;
+      const { token } = req.params;
 
-      if (!idToken) {
-        return res.status(400).json({
-          success: false,
-          error: 'ID token is required'
-        });
+      const users = await db.find('users', { confirmationToken: token });
+      if (users.length === 0) {
+        return res.status(400).json({ success: false, message: 'Invalid or expired confirmation link' });
       }
 
-      // Verify the Google ID token
-      const ticket = await client.verifyIdToken({
-        idToken: idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
+      const user = users[0];
+      if (new Date() > new Date(user.confirmationTokenExpiry)) {
+        return res.status(400).json({ success: false, message: 'Invalid or expired confirmation link' });
+      }
+
+      await db.update('users', user.id, {
+        isConfirmed: true,
+        confirmationToken: null,
+        confirmationTokenExpiry: null
       });
 
-      const payload = ticket.getPayload();
-      const { sub: googleId, email, name, picture } = payload;
-
-      if (!googleId || !email) {
-        return res.status(401).json({
-          success: false,
-          error: 'Invalid token payload'
-        });
-      }
-
-      // Find or create user — track whether this is a new account
-      let isNewUser = false;
-      let users = await db.findAll('users');
-      let user = users.find(u => u.googleId === googleId);
-
-      if (!user) {
-        // Check if user exists with this email (link accounts)
-        user = users.find(u => u.email === email);
-
-        if (user) {
-          // Link existing email account to Google ID
-          user = await db.update('users', user.id, {
-            googleId,
-            name,
-            picture,
-            updatedAt: new Date().toISOString()
-          });
-        } else {
-          // Brand new user
-          isNewUser = true;
-          user = await db.insert('users', {
-            googleId,
-            email,
-            name,
-            picture,
-            goals: null,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          });
-        }
-      } else {
-        // Returning user — update name/picture in case they changed
-        user = await db.update('users', user.id, {
-          name,
-          picture,
-          updatedAt: new Date().toISOString()
-        });
-      }
-
-      if (!user) {
-        return res.status(500).json({
-          success: false,
-          error: 'Failed to create or update user'
-        });
-      }
-
-      const token = jwt.sign(
-        { userId: user.id, email: user.email },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      res.json({
-        success: true,
-        token,
-        isNewUser,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          picture: user.picture,
-          goals: user.goals || null
-        }
-      });
-
+      res.json({ success: true, message: 'Email confirmed successfully. You can now log in.' });
     } catch (error) {
-      console.error('Google Sign-In Error:', error);
-
-      if (error.message && error.message.includes('Token')) {
-        return res.status(401).json({
-          success: false,
-          error: 'Invalid token'
-        });
-      }
-
-      res.status(500).json({
-        success: false,
-        error: 'Authentication failed'
-      });
+      console.error('Confirmation error:', error);
+      res.status(500).json({ success: false, message: 'An error occurred. Please try again.' });
     }
   });
 
-  /**
-   * GET /api/auth/verify
-   * Verify JWT token validity
-   */
-  router.get('/verify', require('../middleware/auth')(db), (req, res) => {
-    res.json({
-      success: true,
-      user: req.user
-    });
+  // POST /api/auth/resend-confirmation
+  router.post('/resend-confirmation',
+    body('email').isEmail().normalizeEmail(),
+    async (req, res) => {
+      try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ success: false, message: 'Invalid email format' });
+        }
+
+        const { email } = req.body;
+        const users = await db.find('users', { email });
+
+        if (users.length > 0 && !users[0].isConfirmed) {
+          const confirmationToken = crypto.randomBytes(32).toString('hex');
+          const confirmationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+          await db.update('users', users[0].id, {
+            confirmationToken,
+            confirmationTokenExpiry: confirmationTokenExpiry.toISOString()
+          });
+
+          try {
+            await resend.emails.send({
+              from: 'noreply@ltassistant.com',
+              to: email,
+              subject: 'Confirm your LT Assistant account',
+              html: `<p>Click <a href="https://ltassistant.com/confirm/${confirmationToken}">here</a> to confirm your account. This link expires in 24 hours.</p>`
+            });
+          } catch (emailError) {
+            console.error('Failed to send confirmation email:', emailError);
+          }
+        }
+
+        res.json({ success: true, message: 'If an account exists and is unconfirmed, a new confirmation email has been sent.' });
+      } catch (error) {
+        console.error('Resend confirmation error:', error);
+        res.status(500).json({ success: false, message: 'An error occurred. Please try again.' });
+      }
+    }
+  );
+
+  // POST /api/auth/login
+  router.post('/login',
+    body('email').isEmail().normalizeEmail(),
+    body('password').notEmpty(),
+    async (req, res) => {
+      try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          return res.status(400).json({ success: false, message: 'Email and password are required' });
+        }
+
+        const { email, password } = req.body;
+
+        const users = await db.find('users', { email });
+        if (users.length === 0) {
+          return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        const user = users[0];
+
+        if (!user.isConfirmed) {
+          return res.status(403).json({ success: false, message: 'Please confirm your email before logging in' });
+        }
+
+        const valid = await bcrypt.compare(password, user.password);
+        if (!valid) {
+          return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        const jwtToken = jwt.sign(
+          { userId: user.id, email: user.email },
+          process.env.JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+
+        res.cookie('token', jwtToken, COOKIE_OPTIONS);
+        res.json({
+          success: true,
+          message: 'Logged in successfully',
+          user: sanitizeUser(user)
+        });
+      } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ success: false, message: 'An error occurred. Please try again.' });
+      }
+    }
+  );
+
+  // POST /api/auth/logout
+  router.post('/logout', (req, res) => {
+    res.clearCookie('token', { httpOnly: true, secure: true, sameSite: 'strict' });
+    res.json({ success: true, message: 'Logged out successfully' });
   });
 
-  /**
-   * POST /api/auth/logout
-   */
-  router.post('/logout', require('../middleware/auth')(db), (req, res) => {
-    res.json({
-      success: true,
-      message: 'Logged out successfully'
-    });
+  // GET /api/auth/me
+  router.get('/me', requireAuth(db), async (req, res) => {
+    try {
+      const user = await db.findById('users', req.user.id);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      res.json({ success: true, user: sanitizeUser(user) });
+    } catch (error) {
+      console.error('Get me error:', error);
+      res.status(500).json({ success: false, message: 'An error occurred. Please try again.' });
+    }
   });
 
   return router;

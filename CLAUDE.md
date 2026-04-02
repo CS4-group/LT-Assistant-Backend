@@ -39,21 +39,20 @@ Routes are mounted in `server.js` under `/api/<resource>`.
 
 | Prefix | File | Auth | Purpose |
 |---|---|---|---|
-| `/api/auth` | `routes/auth.js` | None / JWT | Google OAuth sign-in, token verify, logout |
+| `/api/auth` | `routes/auth.js` | Per-route | Signup, email confirmation, login, logout, me |
 | `/api/user` | `routes/user.js` | Required | Profile, onboarding goals |
-| `/api/courses` | `routes/courses.js` | None | CRUD + ratings |
-| `/api/teachers` | `routes/teachers.js` | None | CRUD + ratings |
-| `/api/clubs` | `routes/clubs.js` | None | CRUD + ratings |
-| `/api/reviews` | `routes/reviews.js` | Mixed | CRUD, like/unlike (auth required for writes; optional for reads to attach `userLiked`) |
-| `/api/chatbot` | `routes/chatbot.js` | None | Gemini AI counselor chatbot |
+| `/api/courses` | `routes/courses.js` | Required | CRUD + ratings |
+| `/api/teachers` | `routes/teachers.js` | Required | CRUD + ratings |
+| `/api/clubs` | `routes/clubs.js` | Required | CRUD + ratings |
+| `/api/reviews` | `routes/reviews.js` | Required | CRUD, like/unlike |
+| `/api/chatbot` | `routes/chatbot.js` | Required | Gemini AI counselor chatbot |
 | `/api/planner` | `routes/planner.js` | Required | 4-year course planner (add/remove/move/reset) |
 
 ### Authentication (`middleware/auth.js`)
 
-- **Required**: `authMiddleware(db)` — rejects 401 if no valid Bearer JWT.
-- **Optional**: `authMiddleware.optional(db)` — attaches `req.user` if token present, continues otherwise. Used by review reads.
+`requireAuth(db)` — reads JWT from httpOnly cookie (`token`), verifies with `jsonwebtoken`, checks `isConfirmed`, attaches `req.user = { id, email }`. Returns 401 if missing/invalid, 403 if unconfirmed. Applied globally in `server.js` to all non-auth routes.
 
-JWTs are signed with `JWT_SECRET` and contain `{ userId, email }`. Google OAuth verifies ID tokens via `google-auth-library`.
+Auth uses email/password with bcrypt (12 rounds). Signup requires email confirmation via Resend. JWTs are stored in httpOnly secure sameSite strict cookies (7-day expiry). Rate limiting (10 req/15 min) on all `/api/auth` routes. Input validation via `express-validator`. Security headers via `helmet`. CORS locked to `https://ltassistant.com` with credentials.
 
 ### Review System
 
@@ -65,7 +64,7 @@ The planner stores an object on the user record (`user.coursePlan`) with the sha
 
 ## Environment Variables
 
-Required in `.env`: `MONGODB_URI`, `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `JWT_SECRET`, `PORT`.
+Required in `.env`: `MONGODB_URI`, `JWT_SECRET`, `RESEND_API_KEY`, `GEMINI_API_KEY`, `PORT`.
 
 ## Data
 

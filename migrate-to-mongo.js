@@ -59,7 +59,8 @@ async function migrate() {
   await db.collection('reviews').createIndex({ id: 1 }, { unique: true });
   await db.collection('reviews').createIndex({ entityType: 1, entityId: 1 });
   await db.collection('users').createIndex({ id: 1 }, { unique: true });
-  await db.collection('users').createIndex({ googleId: 1 }, { sparse: true });
+  await db.collection('users').createIndex({ email: 1 }, { unique: true });
+  await db.collection('users').createIndex({ confirmationToken: 1 }, { sparse: true });
   await db.collection('review_likes').createIndex({ userId: 1, reviewId: 1 });
   console.log('Indexes created');
 

@@ -19,7 +19,8 @@
       "Bash(node -e \"process.stdin.on\\('data',d=>{const j=JSON.parse\\(d\\);console.log\\('Teachers: success='+j.success+' count='+j.data.length\\)}\\)\")",
       "Bash(curl -s http://localhost:3000/api/clubs)",
       "Bash(node -e \"process.stdin.on\\('data',d=>{const j=JSON.parse\\(d\\);console.log\\('Clubs: success='+j.success+' count='+j.data.length\\)}\\)\")",
-      "Bash(pkill -f \"node server.js\")"
+      "Bash(pkill -f \"node server.js\")",
+      "Bash(npm uninstall:*)"
     ]
   }
 }
