@@ -10,7 +10,7 @@ const app = express();
 
 // Middleware
 app.use(helmet());
-app.use(cors({ origin: 'https://ltassistant.com', credentials: true }));
+app.use(cors({ origin: ['https://ltassistant.com', 'https://www.ltassistant.com'], credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
 
