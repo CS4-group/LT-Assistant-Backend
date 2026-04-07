@@ -5,6 +5,19 @@ module.exports = (db) => {
   // GET all teachers with ratings
   router.get('/', async (req, res) => {
     try {
+      const limit = req.query.limit ? parseInt(req.query.limit) : null;
+      const offset = req.query.offset ? parseInt(req.query.offset) : 0;
+
+      if (limit) {
+        const { items, total } = await db.getPaginatedWithRatings('teachers', limit, offset);
+        return res.json({
+          success: true,
+          data: items,
+          total,
+          message: 'Teachers retrieved successfully'
+        });
+      }
+
       const teachers = await db.getAllWithRatings('teachers');
       res.json({
         success: true,

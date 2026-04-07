@@ -5,6 +5,19 @@ module.exports = (db) => {
   // GET all clubs with ratings
   router.get('/', async (req, res) => {
     try {
+      const limit = req.query.limit ? parseInt(req.query.limit) : null;
+      const offset = req.query.offset ? parseInt(req.query.offset) : 0;
+
+      if (limit) {
+        const { items, total } = await db.getPaginatedWithRatings('clubs', limit, offset);
+        return res.json({
+          success: true,
+          data: items,
+          total,
+          message: 'Clubs retrieved successfully'
+        });
+      }
+
       const clubs = await db.getAllWithRatings('clubs');
       res.json({
         success: true,

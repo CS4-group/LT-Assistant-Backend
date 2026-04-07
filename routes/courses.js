@@ -5,17 +5,33 @@ module.exports = (db) => {
   // GET course names with ratings
   router.get('/names', async (req, res) => {
     try {
-      const courses = await db.getAllWithRatings('courses');
-      const courseNames = courses.map(course => ({
-        id: course.id,
-        title: course.title,
-        rating: course.rating,
-        reviewCount: course.reviewCount
-      }));
+      const limit = req.query.limit ? parseInt(req.query.limit) : null;
+      const offset = req.query.offset ? parseInt(req.query.offset) : 0;
+
+      let courseNames, total;
+      if (limit) {
+        const result = await db.getPaginatedWithRatings('courses', limit, offset);
+        total = result.total;
+        courseNames = result.items.map(course => ({
+          id: course.id,
+          title: course.title,
+          rating: course.rating,
+          reviewCount: course.reviewCount
+        }));
+      } else {
+        const courses = await db.getAllWithRatings('courses');
+        courseNames = courses.map(course => ({
+          id: course.id,
+          title: course.title,
+          rating: course.rating,
+          reviewCount: course.reviewCount
+        }));
+      }
 
       res.json({
         success: true,
         data: courseNames,
+        ...(limit && { total }),
         message: 'Course names retrieved successfully'
       });
     } catch (error) {
@@ -57,6 +73,19 @@ module.exports = (db) => {
   // GET all courses with ratings
   router.get('/', async (req, res) => {
     try {
+      const limit = req.query.limit ? parseInt(req.query.limit) : null;
+      const offset = req.query.offset ? parseInt(req.query.offset) : 0;
+
+      if (limit) {
+        const { items, total } = await db.getPaginatedWithRatings('courses', limit, offset);
+        return res.json({
+          success: true,
+          data: items,
+          total,
+          message: 'Courses retrieved successfully'
+        });
+      }
+
       const courses = await db.getAllWithRatings('courses');
       res.json({
         success: true,

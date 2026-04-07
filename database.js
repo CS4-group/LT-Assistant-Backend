@@ -139,19 +139,88 @@ class MongoDatabase {
     };
   }
 
-  // Get all entities with their ratings
+  // Get all entities with their ratings — single aggregation instead of N+1 queries
   async getAllWithRatings(collection) {
-    const entities = await this.findAll(collection);
     const entityType = collection.slice(0, -1);
+    return await this.db.collection(collection).aggregate([
+      {
+        $lookup: {
+          from: 'reviews',
+          let: { entityId: '$id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$entityType', entityType] },
+                    { $eq: ['$entityId', '$$entityId'] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: '_reviews'
+        }
+      },
+      {
+        $addFields: {
+          rating: {
+            $cond: {
+              if: { $gt: [{ $size: '$_reviews' }, 0] },
+              then: { $round: [{ $avg: '$_reviews.rating' }, 1] },
+              else: 0
+            }
+          },
+          reviewCount: { $size: '$_reviews' }
+        }
+      },
+      { $project: { _id: 0, _reviews: 0 } }
+    ]).toArray();
+  }
 
-    return await Promise.all(entities.map(async (entity) => {
-      const ratingInfo = await this.getAverageRating(entityType, entity.id);
-      return {
-        ...entity,
-        rating: ratingInfo.average,
-        reviewCount: ratingInfo.count
-      };
-    }));
+  // Get a paginated slice of entities with ratings — single aggregation instead of N+1 queries
+  async getPaginatedWithRatings(collection, limit, offset = 0) {
+    const entityType = collection.slice(0, -1);
+    const [total, items] = await Promise.all([
+      this.db.collection(collection).countDocuments(),
+      this.db.collection(collection).aggregate([
+        { $skip: offset },
+        { $limit: limit },
+        {
+          $lookup: {
+            from: 'reviews',
+            let: { entityId: '$id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$entityType', entityType] },
+                      { $eq: ['$entityId', '$$entityId'] }
+                    ]
+                  }
+                }
+              }
+            ],
+            as: '_reviews'
+          }
+        },
+        {
+          $addFields: {
+            rating: {
+              $cond: {
+                if: { $gt: [{ $size: '$_reviews' }, 0] },
+                then: { $round: [{ $avg: '$_reviews.rating' }, 1] },
+                else: 0
+              }
+            },
+            reviewCount: { $size: '$_reviews' }
+          }
+        },
+        { $project: { _id: 0, _reviews: 0 } }
+      ]).toArray()
+    ]);
+    return { items, total };
   }
 }
 

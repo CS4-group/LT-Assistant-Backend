@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 
 async function attachUserLiked(reviews, userId, db) {
-  return Promise.all(reviews.map(async (review) => {
-    const liked = (await db.find('review_likes', { userId, reviewId: review.id })).length > 0;
-    return { ...review, userLiked: liked };
-  }));
+  if (reviews.length === 0) return reviews;
+  const reviewIds = reviews.map(r => r.id);
+  const likes = await db.find('review_likes', { userId, reviewId: { $in: reviewIds } });
+  const likedSet = new Set(likes.map(l => l.reviewId));
+  return reviews.map(review => ({ ...review, userLiked: likedSet.has(review.id) }));
 }
 
 module.exports = (db) => {
