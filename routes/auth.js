@@ -23,7 +23,7 @@ module.exports = (db) => {
   const COOKIE_OPTIONS = {
     httpOnly: true,
     secure: true,
-    sameSite: 'strict',
+    sameSite: 'none',
     maxAge: 7 * 24 * 60 * 60 * 1000
   };
 
@@ -211,7 +211,7 @@ module.exports = (db) => {
 
   // POST /api/auth/logout
   router.post('/logout', (req, res) => {
-    res.clearCookie('token', { httpOnly: true, secure: true, sameSite: 'strict' });
+    res.clearCookie('token', { httpOnly: true, secure: true, sameSite: 'none' });
     res.json({ success: true, message: 'Logged out successfully' });
   });
 
